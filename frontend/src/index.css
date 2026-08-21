@@ -1,0 +1,76 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Arabic font support */
+[dir="rtl"] {
+  font-family: 'Cairo', sans-serif;
+}
+
+[dir="ltr"] {
+  font-family: 'Inter', sans-serif;
+}
+
+body {
+  @apply bg-gray-50 text-gray-900;
+}
+
+/* Smooth RTL/LTR transitions */
+* {
+  transition: none;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  @apply bg-gray-100;
+}
+::-webkit-scrollbar-thumb {
+  @apply bg-gray-400 rounded-full;
+}
+
+/* Slot grid — using plain CSS to avoid Tailwind @apply issues with custom colors */
+.slot-available {
+  background: white;
+  border: 2px solid #bfdbfe;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+.slot-available:hover {
+  border-color: #3b82f6;
+  background: #eff6ff;
+}
+
+.slot-selected {
+  background: #2563eb;
+  border: 2px solid #1d4ed8;
+  color: white;
+  cursor: pointer;
+}
+
+.slot-full {
+  background: #f3f4f6;
+  border: 2px solid #e5e7eb;
+  color: #9ca3af;
+  cursor: not-allowed;
+}
+
+.slot-urgent-available {
+  background: white;
+  border: 2px solid #fed7aa;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+.slot-urgent-available:hover {
+  border-color: #f97316;
+  background: #fff7ed;
+}
+
+.slot-urgent-selected {
+  background: #ea580c;
+  border: 2px solid #c2410c;
+  color: white;
+  cursor: pointer;
+}
