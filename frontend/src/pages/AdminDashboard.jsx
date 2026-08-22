@@ -56,13 +56,81 @@ export default function AdminDashboard() {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
 
+  // Slot management state
+  const [slotLocation, setSlotLocation] = useState('');
+  const [slotDate, setSlotDate] = useState(today());
+  const [slots, setSlots] = useState([]);
+  const [slotsLoading, setSlotsLoading] = useState(false);
+  const [blockReason, setBlockReason] = useState('');
+  const [slotActionLoading, setSlotActionLoading] = useState(null);
+
   useEffect(() => {
     api.get('/locations').then((r) => setLocations(r.data)).catch(() => {});
   }, []);
 
   useEffect(() => {
-    if (activeTab === 'overview') loadStats();
-  }, [statsDate, activeTab]);
+    if (activeTab === 'slots' && slotLocation && slotDate) loadAdminSlots();
+  }, [slotLocation, slotDate, activeTab]);
+
+  const loadAdminSlots = async () => {
+    setSlotsLoading(true);
+    try {
+      const res = await api.get(`/slots/admin?location_id=${slotLocation}&date=${slotDate}`);
+      setSlots(res.data);
+    } catch {
+      setError(t('error'));
+    } finally {
+      setSlotsLoading(false);
+    }
+  };
+
+  const handleBlockSlot = async (slotId, currentlyBlocked) => {
+    setSlotActionLoading(slotId);
+    try {
+      if (currentlyBlocked) {
+        await api.patch(`/slots/${slotId}/unblock`);
+        setMessage('Slot unblocked');
+      } else {
+        await api.patch(`/slots/${slotId}/block`, { reason: blockReason || null });
+        setMessage('Slot blocked');
+      }
+      loadAdminSlots();
+    } catch (err) {
+      setError(err.response?.data?.error || t('error'));
+    } finally {
+      setSlotActionLoading(null);
+    }
+  };
+
+  const handleBlockDay = async () => {
+    if (!slotLocation || !slotDate) return;
+    setSlotActionLoading('day');
+    try {
+      await api.post('/slots/block-day', { location_id: slotLocation, date: slotDate, reason: blockReason || null });
+      setMessage('All slots blocked for this date');
+      loadAdminSlots();
+    } catch (err) {
+      setError(err.response?.data?.error || t('error'));
+    } finally {
+      setSlotActionLoading(null);
+    }
+  };
+
+  const handleUnblockDay = async () => {
+    if (!slotLocation || !slotDate) return;
+    setSlotActionLoading('unblock-day');
+    try {
+      await api.post('/slots/unblock-day', { location_id: slotLocation, date: slotDate });
+      setMessage('All slots unblocked for this date');
+      loadAdminSlots();
+    } catch (err) {
+      setError(err.response?.data?.error || t('error'));
+    } finally {
+      setSlotActionLoading(null);
+    }
+  };
+
+
 
   useEffect(() => {
     if (activeTab === 'bookings') loadBookings();
@@ -173,6 +241,12 @@ export default function AdminDashboard() {
             className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${activeTab === 'bookings' ? 'bg-primary-600 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'}`}
           >
             {t('viewBookings')}
+          </button>
+          <button
+            onClick={() => setActiveTab('slots')}
+            className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${activeTab === 'slots' ? 'bg-primary-600 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'}`}
+          >
+            {isRTL ? 'إدارة المواعيد' : 'Manage Slots'}
           </button>
         </div>
       </div>
@@ -463,6 +537,124 @@ export default function AdminDashboard() {
                   </div>
                 </div>
               )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* SLOTS MANAGEMENT TAB */}
+      {activeTab === 'slots' && (
+        <div>
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 mb-5">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">{t('location')}</label>
+                <select
+                  value={slotLocation}
+                  onChange={(e) => setSlotLocation(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                >
+                  <option value="">{t('selectLocation')}</option>
+                  {locations.map((loc) => (
+                    <option key={loc.id} value={loc.id}>{isRTL ? loc.name_ar : loc.name_en}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">{t('date')}</label>
+                <input
+                  type="date"
+                  value={slotDate}
+                  onChange={(e) => setSlotDate(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">
+                  {isRTL ? 'سبب الإغلاق (اختياري)' : 'Block Reason (optional)'}
+                </label>
+                <input
+                  type="text"
+                  value={blockReason}
+                  onChange={(e) => setBlockReason(e.target.value)}
+                  placeholder={isRTL ? 'مثال: إجازة رسمية' : 'e.g. Public holiday'}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                />
+              </div>
+            </div>
+            {slotLocation && slotDate && (
+              <div className="flex gap-3 mt-3 pt-3 border-t border-gray-100">
+                <button
+                  onClick={handleBlockDay}
+                  disabled={slotActionLoading === 'day'}
+                  className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
+                >
+                  {slotActionLoading === 'day' ? '...' : (isRTL ? '🔒 إغلاق كل اليوم' : '🔒 Block Entire Day')}
+                </button>
+                <button
+                  onClick={handleUnblockDay}
+                  disabled={slotActionLoading === 'unblock-day'}
+                  className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
+                >
+                  {slotActionLoading === 'unblock-day' ? '...' : (isRTL ? '🔓 فتح كل اليوم' : '🔓 Unblock Entire Day')}
+                </button>
+              </div>
+            )}
+          </div>
+
+          {!slotLocation ? (
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-12 text-center text-gray-400">
+              {isRTL ? 'اختر موقعاً وتاريخاً لعرض المواعيد' : 'Select a location and date to view slots'}
+            </div>
+          ) : slotsLoading ? (
+            <div className="py-20"><LoadingSpinner text={t('loading')} /></div>
+          ) : (
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                {slots.map((slot) => {
+                  const isBlocked = slot.is_blocked;
+                  const isFull = !isBlocked && slot.booked_count >= slot.capacity;
+                  const [h, m] = slot.slot_time.split(':');
+                  const hour = parseInt(h);
+                  const ampm = hour >= 12 ? 'PM' : 'AM';
+                  const dh = hour > 12 ? hour - 12 : hour === 0 ? 12 : hour;
+                  const timeLabel = `${dh}:${m} ${ampm}`;
+                  return (
+                    <div key={slot.id} className={`rounded-xl border-2 p-3 text-center ${
+                      isBlocked ? 'bg-red-50 border-red-300' :
+                      isFull ? 'bg-gray-50 border-gray-200' :
+                      slot.slot_type === 'urgent' ? 'bg-orange-50 border-orange-200' :
+                      'bg-blue-50 border-blue-200'
+                    }`}>
+                      <div className="text-xs font-bold text-gray-700 mb-1">{timeLabel}</div>
+                      <div className={`text-xs mb-1 font-medium ${
+                        isBlocked ? 'text-red-600' : isFull ? 'text-gray-500' :
+                        slot.slot_type === 'urgent' ? 'text-orange-600' : 'text-blue-600'
+                      }`}>
+                        {isBlocked ? (isRTL ? '🔒 مغلق' : '🔒 Blocked') :
+                         isFull ? (isRTL ? 'ممتلئ' : 'Full') :
+                         `${slot.booked_count}/${slot.capacity}`}
+                      </div>
+                      {slot.blocked_reason && (
+                        <div className="text-xs text-red-400 mb-1 truncate" title={slot.blocked_reason}>
+                          {slot.blocked_reason}
+                        </div>
+                      )}
+                      <button
+                        onClick={() => handleBlockSlot(slot.id, isBlocked)}
+                        disabled={slotActionLoading === slot.id}
+                        className={`w-full py-1 text-xs font-medium rounded-lg transition-colors ${
+                          isBlocked ? 'bg-green-100 text-green-700 hover:bg-green-200' :
+                          'bg-red-100 text-red-700 hover:bg-red-200'
+                        } disabled:opacity-40`}
+                      >
+                        {slotActionLoading === slot.id ? '...' :
+                          isBlocked ? (isRTL ? 'فتح' : 'Unblock') : (isRTL ? 'إغلاق' : 'Block')}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           )}
         </div>

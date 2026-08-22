@@ -40,6 +40,12 @@ router.post('/', authenticate, async (req, res) => {
 
     const slot = slotResult.rows[0];
 
+    // Check if slot is blocked
+    if (slot.is_blocked) {
+      await client.query('ROLLBACK');
+      return res.status(409).json({ error: 'This slot is blocked by admin' });
+    }
+
     // Check if slot date is in the past
     const today = new Date().toISOString().split('T')[0];
     if (slot.slot_date.toISOString().split('T')[0] < today) {
