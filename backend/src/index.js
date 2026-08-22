@@ -6,6 +6,9 @@ const rateLimit = require('express-rate-limit');
 const app = express();
 const PORT = process.env.PORT || 4000;
 
+// Trust proxy (needed for Railway/Render)
+app.set('trust proxy', 1);
+
 // CORS
 app.use(cors({
   origin: process.env.FRONTEND_URL || '*',
